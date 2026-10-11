@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { stdin, stdout } from 'node:process';
-import { fetchProfile, fetchStarredPage } from './github.js';
+import { fetchContributionCalendar, fetchProfile, fetchStarredPage } from './github.js';
 import { saveConfig } from './config.js';
 import { getPalette, nextTheme, supportsColor } from './theme.js';
 
@@ -165,6 +165,34 @@ function activeRepositories(data, state) {
   return state.tab === 'stars' ? state.starredRepositories : data.repositories;
 }
 
+function contributionRows(calendar, loading, width) {
+  if (loading) return ['Loading contribution activity…'];
+  if (!calendar?.days?.length) return ['Contribution calendar unavailable.'];
+
+  const firstDate = new Date(`${calendar.days[0].date}T00:00:00Z`);
+  firstDate.setUTCDate(firstDate.getUTCDate() - firstDate.getUTCDay());
+  const lastDate = new Date(`${calendar.days.at(-1).date}T00:00:00Z`);
+  lastDate.setUTCDate(lastDate.getUTCDate() - lastDate.getUTCDay());
+  const weekCount = Math.floor((lastDate.getTime() - firstDate.getTime()) / 604800000) + 1;
+  const visibleWeeks = Math.min(weekCount, Math.max(1, width - 4));
+  const offset = weekCount - visibleWeeks;
+  const rows = Array.from({ length: 7 }, () => Array(visibleWeeks).fill('·'));
+
+  for (const day of calendar.days) {
+    const date = new Date(`${day.date}T00:00:00Z`);
+    const week = Math.floor((date.getTime() - firstDate.getTime()) / 604800000) - offset;
+    if (week >= 0 && week < visibleWeeks) rows[date.getUTCDay()][week] = ['·', '░', '▒', '▓', '█'][day.level];
+  }
+
+  const total = calendar.total === null
+    ? 'Contributions in the last year'
+    : `${new Intl.NumberFormat('en').format(calendar.total)} contributions in the last year`;
+  const labels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const result = [total, ...rows.map((week, index) => `${labels[index]} ${week.join('')}`), 'Less · ░ ▒ ▓ █ More'];
+  if (offset > 0) result.splice(1, 0, `Showing the latest ${visibleWeeks} weeks`);
+  return result;
+}
+
 function renderContent(repositories, state, width, height, palette, color) {
   const result = [];
   const visibleRepositories = state.tab === 'stars' ? state.starredRepositories : repositories;
@@ -174,8 +202,11 @@ function renderContent(repositories, state, width, height, palette, color) {
 
   if (state.tab === 'overview') {
     result.push({ text: 'Overview', foreground: 'accent' });
+    for (const text of contributionRows(state.calendar, state.calendarLoading, inner)) {
+      result.push({ text, foreground: text.startsWith('Loading') || text.includes('unavailable') ? 'muted' : 'accent' });
+    }
     result.push({ text: 'Public repositories', foreground: 'muted' });
-    const count = Math.max(0, Math.min(8, height - 5));
+    const count = Math.max(0, Math.min(6, height - result.length - 3));
     const recent = repositories.slice(0, count);
     recent.forEach((repository, index) => {
       result.push({
@@ -340,6 +371,8 @@ export function startTui(initialData, options = {}) {
       search: '',
       searchMode: false,
       starredRepositories: [],
+      calendar: null,
+      calendarLoading: true,
       starsPage: 0,
       starsHasMore: false,
       starsLoaded: false,
@@ -351,6 +384,7 @@ export function startTui(initialData, options = {}) {
     const colorOptions = { noColor: options.noColor };
     let closed = false;
     let messageTimer;
+    let contributionController;
 
     const draw = () => {
       if (closed) return;
@@ -365,6 +399,7 @@ export function startTui(initialData, options = {}) {
       stdout.off('resize', draw);
       process.off('SIGINT', finish);
       process.off('SIGTERM', finish);
+      contributionController?.abort();
       stdin.setRawMode(false);
       stdout.write(`${SHOW_CURSOR}${CSI}0m\n`);
       stdin.pause();
@@ -381,6 +416,18 @@ export function startTui(initialData, options = {}) {
       draw();
     };
 
+    const refreshContributions = () => {
+      contributionController?.abort();
+      contributionController = new AbortController();
+      state.calendar = null;
+      state.calendarLoading = true;
+      void fetchContributionCalendar(data.profile.login, contributionController.signal).then((calendar) => {
+        state.calendar = calendar;
+        state.calendarLoading = false;
+        draw();
+      });
+    };
+
     const reload = async () => {
       if (state.busy) return;
       state.busy = true;
@@ -390,6 +437,7 @@ export function startTui(initialData, options = {}) {
         data = await fetchProfile(data.profile.login);
         state.cursor = Math.min(state.cursor, Math.max(0, filteredRepositories(data.repositories, state.search).length - 1));
         state.message = 'Profile refreshed';
+        refreshContributions();
       } catch (error) {
         state.message = error.message;
       } finally {
@@ -538,5 +586,6 @@ export function startTui(initialData, options = {}) {
     process.on('SIGTERM', finish);
     stdout.write(`${HIDE_CURSOR}${CLEAR_SCREEN}`);
     draw();
+    refreshContributions();
   });
 }

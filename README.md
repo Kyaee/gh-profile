@@ -23,6 +23,7 @@ to this project unless that name becomes available or its owner grants access.
 
 - Profile overview with bio, location, company, website, public email, social
   handle, join date, and follower/repository counts.
+- Overview contribution calendar with the last year's daily activity levels.
 - Browse every public repository, including description, language, stars,
   forks, and last update time.
 - Browse starred repositories in pages of 100, matching GitHub's Stars view.
@@ -54,9 +55,11 @@ npx gh-profile-tui torvalds --no-color
 
 ## Data and privacy
 
-The viewer reads public profile and repository data from GitHub's REST API. It
-does not require a token and cannot show private repositories. GitHub's public
-API rate limit applies. The only saved setting is the selected theme, stored
+The viewer reads public profile and repository data from GitHub's REST API and
+the contribution calendar from the public profile page. It does not require a
+token and cannot show private repositories. GitHub's public API rate limit
+applies. If GitHub does not return calendar markup, the rest of the profile
+still opens normally. The only saved setting is the selected theme, stored
 under the operating system's normal user config directory (`$XDG_CONFIG_HOME`
 on Linux when set).
 

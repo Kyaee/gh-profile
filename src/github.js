@@ -1,4 +1,5 @@
 const API_ROOT = 'https://api.github.com';
+const WEB_ROOT = 'https://github.com';
 const USERNAME_PATTERN = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
 
 export function isValidUsername(username) {
@@ -54,6 +55,63 @@ async function requestJson(path, username) {
     return await response.json();
   } catch {
     throw new Error('GitHub returned an unreadable response. Try again later.');
+  }
+}
+
+function attribute(element, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = element.match(new RegExp(`\\b${escaped}\\s*=\\s*["']([^"']*)["']`, 'i'));
+  return match?.[1];
+}
+
+export function parseContributionCalendar(html) {
+  const days = [];
+  for (const match of html.matchAll(/<(?:rect|td)\b[^>]*>/gi)) {
+    const date = attribute(match[0], 'data-date');
+    const level = Number(attribute(match[0], 'data-level'));
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(level) || level < 0 || level > 4) continue;
+    days.push({ date, level });
+  }
+
+  if (days.length === 0) return null;
+  days.sort((left, right) => left.date.localeCompare(right.date));
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ');
+  const totalMatch = text.match(/([\d,]+)\s+contributions?\s+in\s+the\s+last\s+year/i);
+
+  return {
+    total: totalMatch ? Number(totalMatch[1].replaceAll(',', '')) : null,
+    days,
+  };
+}
+
+export async function fetchContributionCalendar(username, signal) {
+  if (!isValidUsername(username)) return null;
+
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) return null;
+  signal?.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(abort, 5000);
+  const to = new Date().toISOString().slice(0, 10);
+
+  try {
+    const response = await fetch(
+      `${WEB_ROOT}/users/${encodeURIComponent(username)}/contributions?to=${to}`,
+      {
+        headers: {
+          Accept: 'text/html',
+          'User-Agent': 'gh-profile-tui',
+        },
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok) return null;
+    return parseContributionCalendar(await response.text());
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', abort);
   }
 }
 
