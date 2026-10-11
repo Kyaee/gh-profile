@@ -1,3 +1,5 @@
+import { load } from 'cheerio';
+
 const API_ROOT = 'https://api.github.com';
 const WEB_ROOT = 'https://github.com';
 const USERNAME_PATTERN = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
@@ -65,21 +67,30 @@ function attribute(element, name) {
 }
 
 export function parseContributionCalendar(html) {
+  const $ = load(html);
+  const counts = new Map($('tool-tip[for]').toArray().map((tip) => {
+    const text = $(tip).text().trim();
+    const match = text.match(/^([\d,]+) contributions?\b/i);
+    return [$(tip).attr('for'), /^No contributions\b/i.test(text) ? 0 : match ? Number(match[1].replaceAll(',', '')) : null];
+  }));
   const days = [];
   for (const match of html.matchAll(/<(?:rect|td)\b[^>]*>/gi)) {
     const date = attribute(match[0], 'data-date');
     const level = Number(attribute(match[0], 'data-level'));
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(level) || level < 0 || level > 4) continue;
-    days.push({ date, level });
+    const rawCount = attribute(match[0], 'data-count');
+    const count = rawCount !== undefined && /^\d+$/.test(rawCount) ? Number(rawCount) : counts.get(attribute(match[0], 'id')) ?? null;
+    days.push({ date, level, count });
   }
 
   if (days.length === 0) return null;
   days.sort((left, right) => left.date.localeCompare(right.date));
   const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ');
-  const totalMatch = text.match(/([\d,]+)\s+contributions?\s+in\s+the\s+last\s+year/i);
+  const totalMatch = text.match(/([\d,]+)\s+contributions?\s+in\s+(the\s+last\s+year|\d{4})/i);
 
   return {
     total: totalMatch ? Number(totalMatch[1].replaceAll(',', '')) : null,
+    period: totalMatch ? `in ${totalMatch[2]}` : `${days[0].date} – ${days.at(-1).date}`,
     days,
   };
 }
@@ -92,21 +103,36 @@ export async function fetchContributionCalendar(username, signal) {
   if (signal?.aborted) return null;
   signal?.addEventListener('abort', abort, { once: true });
   const timer = setTimeout(abort, 5000);
-  const to = new Date().toISOString().slice(0, 10);
+  const today = new Date();
+  const to = today.toISOString().slice(0, 10);
+  const year = today.getUTCFullYear();
+  const fromDate = new Date(Date.UTC(year - 1, today.getUTCMonth(), today.getUTCDate() + 1));
+  const from = fromDate.toISOString().slice(0, 10);
 
   try {
-    const response = await fetch(
-      `${WEB_ROOT}/users/${encodeURIComponent(username)}/contributions?to=${to}`,
-      {
-        headers: {
-          Accept: 'text/html',
-          'User-Agent': 'gh-profile',
-        },
-        signal: controller.signal,
-      },
-    );
-    if (!response.ok) return null;
-    return parseContributionCalendar(await response.text());
+    const calendars = await Promise.all([year - 1, year].map(async (calendarYear) => {
+      try {
+        const response = await fetch(
+          `${WEB_ROOT}/users/${encodeURIComponent(username)}/contributions?from=${calendarYear}-01-01&to=${calendarYear}-12-31`,
+          {
+            headers: { Accept: 'text/html', 'User-Agent': 'gh-profile' },
+            signal: controller.signal,
+          },
+        );
+        if (!response.ok) return null;
+        return parseContributionCalendar(await response.text());
+      } catch { return null; }
+    }));
+    const days = [...new Map(calendars.flatMap((calendar) => calendar?.days || []).map((day) => [day.date, day])).values()]
+      .filter((day) => day.date >= from && day.date <= to)
+      .sort((left, right) => left.date.localeCompare(right.date));
+    const expectedDays = Math.round((new Date(`${to}T00:00:00Z`) - fromDate) / 86400000) + 1;
+    if (days.length !== expectedDays) return calendars[1] || calendars[0];
+    return {
+      days,
+      total: days.every((day) => day.count !== null) ? days.reduce((sum, day) => sum + day.count, 0) : null,
+      period: 'in the last year',
+    };
   } catch {
     return null;
   } finally {
