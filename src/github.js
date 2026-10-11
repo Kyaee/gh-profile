@@ -32,7 +32,7 @@ async function request(path, username) {
     response = await fetch(`${API_ROOT}${path}`, {
       headers: {
         Accept: 'application/vnd.github+json',
-        'User-Agent': 'gh-profile-tui',
+        'User-Agent': 'gh-profile',
         'X-GitHub-Api-Version': '2022-11-28',
       },
       signal: AbortSignal.timeout(12000),
@@ -100,7 +100,7 @@ export async function fetchContributionCalendar(username, signal) {
       {
         headers: {
           Accept: 'text/html',
-          'User-Agent': 'gh-profile-tui',
+          'User-Agent': 'gh-profile',
         },
         signal: controller.signal,
       },

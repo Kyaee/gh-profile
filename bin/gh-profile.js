@@ -31,7 +31,7 @@ function printHelp() {
   console.log(`gh-profile — browse public GitHub profiles in your terminal
 
 Usage:
-  npx gh-profile-tui [username] [options]
+  npx gh-profile [username] [options]
 
 Options:
   --theme <name>  github, light, dracula, or transparent

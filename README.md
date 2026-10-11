@@ -1,23 +1,14 @@
 # gh-profile (currently publishing)
 
 Browse a public GitHub profile and its repositories from a terminal UI. The npm
-package is `gh-profile-tui`; it installs the `gh-profile` command.
+package is `gh-profile`.
 
 ```sh
-npx gh-profile-tui torvalds
-npx gh-profile-tui
+npx gh-profile torvalds
+npx gh-profile
 ```
 
-With no username, the command asks for one. If you want to invoke the installed
-binary by name through npm exec, use:
-
-```sh
-npx --package gh-profile-tui gh-profile torvalds
-```
-
-The npm name `gh-profile` is already registered to another publisher, so this
-project uses `gh-profile-tui`. The bare `npx gh-profile` command cannot resolve
-to this project unless that name becomes available or its owner grants access.
+With no username, the command asks for one.
 
 ### Install from a local checkout
 
@@ -61,9 +52,9 @@ The local install is stored in the ignored `.local/` directory. Replace
 Options:
 
 ```sh
-npx gh-profile-tui --help
-npx gh-profile-tui torvalds --theme transparent
-npx gh-profile-tui torvalds --no-color
+npx gh-profile --help
+npx gh-profile torvalds --theme transparent
+npx gh-profile torvalds --no-color
 ```
 
 ## Data and privacy
