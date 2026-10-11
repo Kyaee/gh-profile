@@ -87,3 +87,16 @@ on Linux when set).
 
 Requires Node.js 18.18 or newer. Run `npm install` in the checkout to install
 Cheerio for public profile markup and pngjs/jpeg-js for terminal avatars.
+
+## Security checks
+
+Run `npm test` for the offline security regression suite. It checks terminal
+control stripping, URL validation, redirect rejection, avatar decoding limits,
+and the CLI fallback with hostile API data. Run `npm audit --omit=dev` to check
+the installed dependency versions for known advisories.
+
+Profile text is displayed as text, including when output is piped. Outbound
+requests use HTTPS GitHub endpoints and reject redirects. Browser actions
+accept only HTTPS GitHub/gist URLs and launch without a shell. Credentials,
+environment files, and local caches are ignored by Git; the npm package includes
+only its source, package manifest, license, and README.

@@ -1,4 +1,12 @@
 node_modules/
 .local/
+local/
+.gstack/
+.env
+.env.*
+!.env.example
+.npmrc
+*.pem
+*.key
 .DS_Store
 npm-debug.log*
