@@ -1,4 +1,4 @@
-# gh-profile
+# gh-profile (currently publishing)
 
 Browse a public GitHub profile and its repositories from a terminal UI. The npm
 package is `gh-profile-tui`; it installs the `gh-profile` command.
