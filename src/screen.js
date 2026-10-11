@@ -192,8 +192,11 @@ function repoCard(page, repository, x, y, width, selected = false, showUpdated =
   const inner = width - 4;
   const badge = clipText(`[${repository.visibility || 'Public'}]`, Math.max(0, inner - 5));
   const titleWidth = Math.max(1, inner - badge.length - 1);
-  const titleRows = wrapText(`${repository.gist ? '◇' : '▣'} ${repository.name}`, titleWidth);
-  titleRows.slice(0, 2).forEach((row, index) => page.write(x + 2, y + 1 + index, index === 1 && titleRows.length > 2 ? clipText(`${row}…`, titleWidth) : row, 'link', true));
+  const titleRows = wrapText(repository.name, Math.max(1, titleWidth - 2));
+  titleRows.slice(0, 2).forEach((row, index) => {
+    const prefix = index === 0 ? `${repository.gist ? '◇' : '▣'} ` : '  ';
+    page.write(x + 2, y + 1 + index, clipText(`${prefix}${row}${index === 1 && titleRows.length > 2 ? '…' : ''}`, titleWidth), 'link', true);
+  });
   page.write(x + width - badge.length - 2, y + 1, badge, 'muted');
   const description = wrapText(repository.description || '', inner).slice(0, 2);
   description.forEach((row, index) => page.write(x + 2, y + 3 + index, row, 'muted'));
