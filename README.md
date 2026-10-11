@@ -19,6 +19,19 @@ The npm name `gh-profile` is already registered to another publisher, so this
 project uses `gh-profile-tui`. The bare `npx gh-profile` command cannot resolve
 to this project unless that name becomes available or its owner grants access.
 
+### Install from a local checkout
+
+To install the command into this project without changing your global npm
+installation, run:
+
+```sh
+npm run install:local
+./.local/node_modules/.bin/gh-profile torvalds
+```
+
+The local install is stored in the ignored `.local/` directory. Replace
+`torvalds` with any public GitHub username.
+
 ## In the terminal
 
 - Profile overview with bio, location, company, website, public email, social

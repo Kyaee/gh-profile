@@ -6,6 +6,9 @@
   "bin": {
     "gh-profile": "./bin/gh-profile.js"
   },
+  "scripts": {
+    "install:local": "npm install --prefix ./.local --no-save ."
+  },
   "files": [
     "bin/",
     "src/",
