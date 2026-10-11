@@ -1,8 +1,10 @@
 import { getPalette } from './theme.js';
+import { plainText } from './text.js';
+
+export { plainText } from './text.js';
 
 const CSI = '\u001b[';
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-export const plainText = (value) => String(value ?? '').replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '').replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim();
 
 function characterWidth(character) {
   const point = character.codePointAt(0);

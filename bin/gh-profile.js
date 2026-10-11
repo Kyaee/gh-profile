@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import { loadConfig, saveConfig, THEMES } from '../src/config.js';
 import { fetchProfile, isValidUsername } from '../src/github.js';
 import { getPalette, paint, supportsColor } from '../src/theme.js';
 import { startTui } from '../src/tui.js';
+import { plainText } from '../src/text.js';
 
 function parseArguments(args) {
   const parsed = { username: undefined, theme: undefined, noColor: false, help: false };
@@ -82,7 +82,7 @@ async function chooseTheme(theme, config) {
 }
 
 function oneLine(value) {
-  return (value || '').replace(/\s+/g, ' ').trim();
+  return plainText(value);
 }
 
 function compactNumber(value) {
@@ -92,10 +92,10 @@ function compactNumber(value) {
 function renderProfile({ profile, repositories }, theme, noColor) {
   const palette = getPalette(theme);
   const color = supportsColor({ noColor });
-  const accent = (value) => paint(value, palette.accent, color);
-  const muted = (value) => paint(value, palette.muted, color);
-  const link = (value) => paint(value, palette.link, color);
-  const plain = (value) => paint(value, palette.text, color);
+  const accent = (value) => paint(plainText(value), palette.accent, color);
+  const muted = (value) => paint(plainText(value), palette.muted, color);
+  const link = (value) => paint(plainText(value), palette.link, color);
+  const plain = (value) => paint(plainText(value), palette.text, color);
   const lines = [
     `${accent(`@${profile.login}`)}${profile.name ? `  ${plain(profile.name)}` : ''}`,
     profile.bio ? oneLine(profile.bio) : muted('No bio provided'),
@@ -146,6 +146,6 @@ async function main() {
 try {
   await main();
 } catch (error) {
-  console.error(`gh-profile: ${error.message}`);
+  console.error(`gh-profile: ${plainText(error.message)}`);
   process.exitCode = 1;
 }

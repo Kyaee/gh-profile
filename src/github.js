@@ -38,6 +38,7 @@ async function request(path, username) {
         'X-GitHub-Api-Version': '2022-11-28',
       },
       signal: AbortSignal.timeout(12000),
+      redirect: 'error',
     });
   } catch (error) {
     if (error.name === 'TimeoutError' || error.name === 'AbortError') {
@@ -117,6 +118,7 @@ export async function fetchContributionCalendar(username, signal) {
           {
             headers: { Accept: 'text/html', 'User-Agent': 'gh-profile' },
             signal: controller.signal,
+            redirect: 'error',
           },
         );
         if (!response.ok) return null;

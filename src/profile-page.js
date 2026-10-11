@@ -73,9 +73,10 @@ export function readmeBlocks(nodes) {
 }
 
 export function githubUrl(value) {
+  if (typeof value !== 'string' || !value || /[\u0000-\u0020\u007f-\u009f]/u.test(value)) return null;
   try {
     const url = new URL(value, 'https://github.com');
-    if (url.protocol !== 'https:' || url.username || url.password
+    if (url.protocol !== 'https:' || url.port || url.username || url.password
       || !['github.com', 'gist.github.com'].includes(url.hostname)) return null;
     return url.href;
   } catch { return null; }
@@ -130,6 +131,7 @@ export async function fetchProfileOverview(profile, signal) {
     try {
       const response = await fetch(`https://github.com/${encodeURIComponent(profile.login)}`, {
         headers: { Accept: 'text/html', 'User-Agent': 'gh-profile' },
+        redirect: 'error',
         signal,
       });
       if (!response.ok) return unavailable;

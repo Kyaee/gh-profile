@@ -15,9 +15,10 @@ export function decodeAvatar(buffer) {
 export async function fetchAvatar(value, signal) {
   try {
     const url = new URL(value);
-    if (url.protocol !== 'https:' || url.hostname !== 'avatars.githubusercontent.com') return null;
+    if (url.protocol !== 'https:' || url.hostname !== 'avatars.githubusercontent.com'
+      || url.port || url.username || url.password) return null;
     url.searchParams.set('s', '64');
-    const response = await fetch(url, { signal });
+    const response = await fetch(url, { signal, redirect: 'error' });
     if (!response.ok || Number(response.headers.get('content-length')) > 1024 * 1024) return null;
     const image = decodeAvatar(Buffer.from(await response.arrayBuffer()));
     return { width: image.width, height: image.height, data: image.data };
