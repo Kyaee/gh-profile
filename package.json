@@ -1,0 +1,25 @@
+{
+  "name": "gh-profile-tui",
+  "version": "0.1.0",
+  "description": "Browse public GitHub profiles and repositories in a terminal UI",
+  "type": "module",
+  "bin": {
+    "gh-profile": "./bin/gh-profile.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.18"
+  },
+  "keywords": [
+    "github",
+    "profile",
+    "terminal",
+    "tui"
+  ],
+  "license": "MIT"
+}
