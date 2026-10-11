@@ -6,6 +6,7 @@ import { stdin, stdout } from 'node:process';
 import { loadConfig, saveConfig, THEMES } from '../src/config.js';
 import { fetchProfile, isValidUsername } from '../src/github.js';
 import { getPalette, paint, supportsColor } from '../src/theme.js';
+import { startTui } from '../src/tui.js';
 
 function parseArguments(args) {
   const parsed = { username: undefined, theme: undefined, noColor: false, help: false };
@@ -111,7 +112,7 @@ function renderProfile({ profile, repositories }, theme, noColor) {
 
   lines.push('', accent(`Repositories (${repositories.length})`));
   if (repositories.length === 0) lines.push(muted('No public repositories.'));
-  for (const repository of repositories.slice(0, 15)) {
+  for (const repository of repositories) {
     const description = oneLine(repository.description);
     const metadata = [
       repository.language,
@@ -121,7 +122,6 @@ function renderProfile({ profile, repositories }, theme, noColor) {
     lines.push(`${link(repository.name)}${metadata ? muted(`  ${metadata}`) : ''}`);
     if (description) lines.push(`  ${description}`);
   }
-  if (repositories.length > 15) lines.push(muted(`… and ${repositories.length - 15} more`));
   lines.push('', muted(`github.com/${profile.login}  ·  Theme: ${theme}`));
   return lines.join('\n');
 }
@@ -136,7 +136,11 @@ async function main() {
   if (stdout.isTTY) stdout.write(`Loading @${username} from GitHub…\n`);
 
   const data = await fetchProfile(username);
-  console.log(renderProfile(data, theme, args.noColor));
+  if (stdin.isTTY && stdout.isTTY && typeof stdin.setRawMode === 'function') {
+    await startTui(data, { theme, noColor: args.noColor });
+  } else {
+    console.log(renderProfile(data, theme, args.noColor));
+  }
 }
 
 try {
