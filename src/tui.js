@@ -151,19 +151,6 @@ function repoLabel(repository, width) {
   return `${truncate(parts[0], available)}${meta ? `  ${meta}` : ''}`;
 }
 
-function selectedRepositoryLines(repository, width) {
-  if (!repository) return ['Select a repository to see its details.'];
-  const lines = [
-    repository.full_name || repository.name,
-    ...wrap(repository.description || 'No description provided.', width, 3),
-    `Language: ${repository.language || 'not specified'}`,
-    `Stars: ${compactNumber(repository.stargazers_count)}   Forks: ${compactNumber(repository.forks_count)}`,
-    `Updated: ${relativeDate(repository.pushed_at)}`,
-    'Press o to open on GitHub',
-  ];
-  return lines;
-}
-
 function filteredRepositories(repositories, query) {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return repositories;
@@ -174,7 +161,7 @@ function filteredRepositories(repositories, query) {
   ].some((field) => String(field || '').toLowerCase().includes(normalized)));
 }
 
-function renderContent(profile, repositories, state, width, height, palette, color) {
+function renderContent(repositories, state, width, height, palette, color) {
   const result = [];
   const matches = filteredRepositories(repositories, state.search);
   const selected = matches[state.cursor];
@@ -271,7 +258,7 @@ function renderScreen(data, state, options) {
     const gapWidth = 1;
     const mainWidth = Math.max(8, width - sidebarWidth - gapWidth);
     const sidebar = profilePane(data.profile, sidebarWidth, contentHeight, palette, color);
-    const main = renderContent(data.profile, data.repositories, state, mainWidth, contentHeight, palette, color);
+    const main = renderContent(data.repositories, state, mainWidth, contentHeight, palette, color);
     contentLines = Array.from({ length: contentHeight }, (_, index) => (
       `${sidebar[index] || line('', sidebarWidth, palette, color, 'text', 'panel')}`
       + `${line('', gapWidth, palette, color, 'text', 'background')}`
@@ -289,7 +276,6 @@ function renderScreen(data, state, options) {
       : [{ text: `@${clean(data.profile.login)}  ·  ${clean(data.profile.name)}`, foreground: 'muted' }];
     const summaryLines = summary.slice(0, summaryHeight).map((item) => line(item.text, width, palette, color, item.foreground, 'panel'));
     const mainLines = renderContent(
-      data.profile,
       data.repositories,
       state,
       width,
