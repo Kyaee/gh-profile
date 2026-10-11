@@ -25,7 +25,7 @@ function githubError(response, username) {
   return new Error(`GitHub returned HTTP ${response.status} ${response.statusText}.`);
 }
 
-async function requestJson(path, username) {
+async function request(path, username) {
   let response;
   try {
     response = await fetch(`${API_ROOT}${path}`, {
@@ -45,12 +45,39 @@ async function requestJson(path, username) {
   }
 
   if (!response.ok) throw githubError(response, username);
+  return response;
+}
 
+async function requestJson(path, username) {
+  const response = await request(path, username);
   try {
     return await response.json();
   } catch {
     throw new Error('GitHub returned an unreadable response. Try again later.');
   }
+}
+
+export async function fetchStarredPage(username, page = 1) {
+  if (!isValidUsername(username)) {
+    throw new Error('GitHub usernames must be 1–39 letters, numbers, or single hyphens.');
+  }
+
+  const response = await request(
+    `/users/${encodeURIComponent(username)}/starred?per_page=100&page=${page}`,
+    username,
+  );
+  let repositories;
+  try {
+    repositories = await response.json();
+  } catch {
+    throw new Error('GitHub returned an unreadable starred repository list.');
+  }
+  if (!Array.isArray(repositories)) throw new Error('GitHub returned an invalid starred repository list.');
+
+  return {
+    repositories,
+    hasNextPage: /rel="?next"?/.test(response.headers.get('link') || ''),
+  };
 }
 
 async function fetchRepositories(username) {

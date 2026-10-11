@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { stdin, stdout } from 'node:process';
-import { fetchProfile } from './github.js';
+import { fetchProfile, fetchStarredPage } from './github.js';
 import { saveConfig } from './config.js';
 import { getPalette, nextTheme, supportsColor } from './theme.js';
 
@@ -161,9 +161,14 @@ function filteredRepositories(repositories, query) {
   ].some((field) => String(field || '').toLowerCase().includes(normalized)));
 }
 
+function activeRepositories(data, state) {
+  return state.tab === 'stars' ? state.starredRepositories : data.repositories;
+}
+
 function renderContent(repositories, state, width, height, palette, color) {
   const result = [];
-  const matches = filteredRepositories(repositories, state.search);
+  const visibleRepositories = state.tab === 'stars' ? state.starredRepositories : repositories;
+  const matches = filteredRepositories(visibleRepositories, state.search);
   const selected = matches[state.cursor];
   const inner = Math.max(8, width - 4);
 
@@ -191,8 +196,15 @@ function renderContent(repositories, state, width, height, palette, color) {
       result.push({ text: `Updated ${relativeDate(selected.pushed_at)} · ${selected.html_url}`, foreground: 'muted' });
     }
   } else {
-    result.push({ text: state.search ? `Repositories / filter: ${state.search}` : `Repositories (${repositories.length})`, foreground: 'accent' });
+    const isStars = state.tab === 'stars';
+    const title = isStars
+      ? `Stars (${state.starredRepositories.length}${state.starsHasMore ? '+' : ''})`
+      : `Repositories (${repositories.length})`;
+    result.push({ text: state.search ? `${title} / filter: ${state.search}` : title, foreground: 'accent' });
     if (state.searchMode) result.push({ text: 'Type to search · Enter to apply · Esc to clear', foreground: 'muted' });
+    else if (isStars && state.starsLoading) result.push({ text: 'Loading starred repositories…', foreground: 'muted' });
+    else if (isStars && state.starsError) result.push({ text: state.starsError, foreground: 'muted' });
+    else if (isStars && state.starsHasMore) result.push({ text: 'Press n to load the next page of stars', foreground: 'muted' });
     else result.push({ text: 'Sorted by most recently updated', foreground: 'muted' });
     if (selected) {
       result.push({ text: `${clean(selected.full_name)}  ·  ${compactNumber(selected.stargazers_count)} stars`, foreground: 'link' });
@@ -215,7 +227,16 @@ function renderContent(repositories, state, width, height, palette, color) {
         background: absolute === state.cursor ? 'selected' : 'panel',
       });
     });
-    if (matches.length === 0) result.push({ text: state.search ? 'No repositories match this filter.' : 'No public repositories.', foreground: 'muted' });
+    if (matches.length === 0 && !(isStars && (state.starsLoading || state.starsError))) {
+      const emptyMessage = state.search
+        ? 'No repositories match this filter.'
+        : isStars && !state.starsLoaded
+          ? 'Loading starred repositories…'
+          : isStars
+            ? 'No starred repositories.'
+            : 'No public repositories.';
+      result.push({ text: emptyMessage, foreground: 'muted' });
+    }
     else if (matches.length > visible.length) result.push({ text: `${state.cursor + 1} of ${matches.length} repositories`, foreground: 'muted' });
   }
 
@@ -244,7 +265,7 @@ function renderScreen(data, state, options) {
     'background',
   );
   const tabs = line(
-    `${state.tab === 'overview' ? '[ Overview ]' : '  Overview  '}   ${state.tab === 'repositories' ? '[ Repositories ]' : '  Repositories  '}    theme: ${state.theme}`,
+    `${state.tab === 'overview' ? '[ Overview ]' : '  Overview  '}   ${state.tab === 'repositories' ? '[ Repositories ]' : '  Repositories  '}   ${state.tab === 'stars' ? '[ Stars ]' : '  Stars  '}   theme: ${state.theme}`,
     width,
     palette,
     color,
@@ -289,7 +310,9 @@ function renderScreen(data, state, options) {
   while (contentLines.length < contentHeight) contentLines.push(line('', width, palette, color, 'text', 'background'));
   const footerText = state.searchMode
     ? 'Type to filter  ·  Enter apply  ·  Esc clear  ·  Ctrl+C quit'
-    : '↑/↓ move  ·  Enter select  ·  o open  ·  / search  ·  Tab view  ·  t theme  ·  r refresh  ·  q quit';
+    : width < 90
+      ? '↑↓ move · Enter open · / find · n next · t theme · r refresh · q quit'
+      : '↑/↓ move · Enter open · o browser · / search · Tab views · n next stars · t theme · r refresh · q quit';
   const footer = line(state.message || footerText, width, palette, color, state.message ? 'accent' : 'muted', 'background');
   return [header, tabs, ...contentLines.slice(0, contentHeight), footer].join('\n');
 }
@@ -316,6 +339,12 @@ export function startTui(initialData, options = {}) {
       offset: 0,
       search: '',
       searchMode: false,
+      starredRepositories: [],
+      starsPage: 0,
+      starsHasMore: false,
+      starsLoaded: false,
+      starsLoading: false,
+      starsError: '',
       message: '',
       busy: false,
     };
@@ -374,6 +403,38 @@ export function startTui(initialData, options = {}) {
       }
     };
 
+    const loadStars = async (nextPage = false) => {
+      if (state.starsLoading || (nextPage && !state.starsHasMore)) return;
+      const page = nextPage ? state.starsPage + 1 : 1;
+      state.starsLoading = true;
+      state.starsError = '';
+      state.message = `Loading starred repositories (page ${page})…`;
+      draw();
+      try {
+        const result = await fetchStarredPage(data.profile.login, page);
+        state.starredRepositories.push(...result.repositories);
+        state.starsPage = page;
+        state.starsHasMore = result.hasNextPage;
+        state.starsLoaded = true;
+      } catch (error) {
+        state.starsError = error.message;
+      } finally {
+        state.starsLoading = false;
+        state.message = '';
+        draw();
+      }
+    };
+
+    const selectTab = (tab) => {
+      state.tab = tab;
+      state.cursor = 0;
+      state.offset = 0;
+      state.search = '';
+      state.searchMode = false;
+      draw();
+      if (tab === 'stars' && !state.starsLoaded && !state.starsLoading) void loadStars();
+    };
+
     const onData = (buffer) => {
       const key = buffer.toString('utf8');
       if (key === '\u0003' || (key === 'q' && !state.searchMode)) return finish();
@@ -404,36 +465,51 @@ export function startTui(initialData, options = {}) {
           .catch((error) => status(`Could not save theme: ${error.message}`));
       } else if (key === 'r') {
         void reload();
+      } else if (key === 'n' && state.tab === 'stars' && state.starsHasMore) {
+        void loadStars(true);
       } else if (key === '/' && state.tab === 'repositories') {
         state.searchMode = true;
         state.search = '';
         state.cursor = 0;
         draw();
-      } else if (key === '\t' || key === '1' || key === '2') {
-        state.tab = key === '1' ? 'overview' : key === '2' ? 'repositories' : state.tab === 'overview' ? 'repositories' : 'overview';
+      } else if (key === '/' && state.tab === 'stars') {
+        state.searchMode = true;
+        state.search = '';
         state.cursor = 0;
-        state.offset = 0;
         draw();
+      } else if (key === '\t' || key === '1' || key === '2' || key === '3') {
+        const tab = key === '1'
+          ? 'overview'
+          : key === '2'
+            ? 'repositories'
+            : key === '3'
+              ? 'stars'
+              : state.tab === 'overview'
+                ? 'repositories'
+                : state.tab === 'repositories'
+                  ? 'stars'
+                  : 'overview';
+        selectTab(tab);
       } else if (key === 'ArrowUp' || key === 'k' || key === '\u001b[A') {
         state.cursor = Math.max(0, state.cursor - 1);
         draw();
       } else if (key === 'ArrowDown' || key === 'j' || key === '\u001b[B') {
-        state.cursor = Math.min(Math.max(0, filteredRepositories(data.repositories, state.search).length - 1), state.cursor + 1);
+        state.cursor = Math.min(Math.max(0, filteredRepositories(activeRepositories(data, state), state.search).length - 1), state.cursor + 1);
         draw();
       } else if (key === '\u001b[5~') {
         state.cursor = Math.max(0, state.cursor - 8);
         draw();
       } else if (key === '\u001b[6~') {
-        state.cursor = Math.min(Math.max(0, filteredRepositories(data.repositories, state.search).length - 1), state.cursor + 8);
+        state.cursor = Math.min(Math.max(0, filteredRepositories(activeRepositories(data, state), state.search).length - 1), state.cursor + 8);
         draw();
       } else if (key === 'Home' || key === '\u001b[H') {
         state.cursor = 0;
         draw();
       } else if (key === 'End' || key === '\u001b[F') {
-        state.cursor = Math.max(0, filteredRepositories(data.repositories, state.search).length - 1);
+        state.cursor = Math.max(0, filteredRepositories(activeRepositories(data, state), state.search).length - 1);
         draw();
       } else if (key === 'o') {
-        const repository = filteredRepositories(data.repositories, state.search)[state.cursor];
+        const repository = filteredRepositories(activeRepositories(data, state), state.search)[state.cursor];
         const url = state.tab === 'overview' || !repository
           ? `https://github.com/${encodeURIComponent(data.profile.login)}`
           : `https://github.com/${encodeURIComponent(data.profile.login)}/${encodeURIComponent(repository.name)}`;
@@ -441,16 +517,15 @@ export function startTui(initialData, options = {}) {
         status('Opened GitHub in your browser');
       } else if (key === '\r' || key === '\n') {
         if (state.tab === 'overview') {
-          state.tab = 'repositories';
           state.cursor = Math.min(state.cursor, Math.max(0, data.repositories.length - 1));
-          draw();
+          selectTab('repositories');
         } else {
-          const repository = filteredRepositories(data.repositories, state.search)[state.cursor];
+          const repository = filteredRepositories(activeRepositories(data, state), state.search)[state.cursor];
           if (repository) openUrl(`https://github.com/${encodeURIComponent(data.profile.login)}/${encodeURIComponent(repository.name)}`);
           status(repository ? 'Opened repository in your browser' : 'No repository selected');
         }
       } else if (key === '?') {
-        status('Use 1/2 or Tab for views · / search · t theme · r refresh · o open · q quit');
+        status('Use 1/2/3 or Tab for views · / search · n more stars · t theme · r refresh · o open · q quit');
       }
     };
 

@@ -25,6 +25,7 @@ to this project unless that name becomes available or its owner grants access.
   handle, join date, and follower/repository counts.
 - Browse every public repository, including description, language, stars,
   forks, and last update time.
+- Browse starred repositories in pages of 100, matching GitHub's Stars view.
 - Search repositories by name, description, or language.
 - Open the profile or selected repository in your browser.
 - Switch between GitHub dark, light, Dracula, and transparent themes. The
@@ -35,8 +36,9 @@ to this project unless that name becomes available or its owner grants access.
 | --- | --- |
 | Up / Down or `j` / `k` | Move through repositories |
 | Enter | Go to repositories, or open the selected repository |
-| Tab or `1` / `2` | Switch between Overview and Repositories |
+| Tab or `1` / `2` / `3` | Switch between Overview, Repositories, and Stars |
 | `/` | Search repositories |
+| `n` | Load the next page in Stars |
 | `t` | Cycle and save the theme |
 | `r` | Refresh profile data |
 | `o` | Open the profile or current repository |
