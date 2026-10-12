@@ -37,8 +37,10 @@ The local install is stored in the ignored `.local/` directory. Replace
   pinned repository cards, achievements, highlights, and public organizations.
 - Profile README with headings, text, image labels, and two-column tables.
   The README tab expands details and shows the full text.
-- Contribution calendar with the last year's daily activity levels and total.
-  If only a calendar year is available, its heading names that year.
+- Contribution calendar with the last year's daily activity levels and total,
+  plus exact contribution counts for the latest 14 days. If only a calendar
+  year is available, its heading names that year. GitHub's contribution counts
+  can include commits, pull requests, issues, and reviews.
 - Narrow terminals stack the sidebar and repository cards. Scroll the overview
   to reach content below the viewport.
 - Browse every public repository, including description, language, stars,

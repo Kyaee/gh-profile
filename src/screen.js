@@ -260,7 +260,22 @@ function contributions(page, calendar, loading, x, y, width, palette, color) {
   page.write(legend, y + 10, 'Less', 'muted');
   for (let level = 0; level < 5; level++) page.write(legend + 5 + level * 2, y + 10, color ? '■' : ['·','░','▒','▓','█'][level], greens[level]);
   page.write(legend + 15, y + 10, 'More', 'muted');
-  return y + 13;
+  y += 13;
+
+  const recentDays = calendar.days.slice(-14).reverse();
+  page.write(x, y++, 'Daily contributions (latest 14 days)', 'text', true);
+  let row = '';
+  for (const day of recentDays) {
+    const date = new Date(`${day.date}T00:00:00Z`);
+    const label = `${date.toLocaleDateString('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })}: ${day.count == null ? '—' : new Intl.NumberFormat('en').format(day.count)}`;
+    const next = row ? `${row}  ·  ${label}` : label;
+    if (textWidth(next) > width) {
+      page.write(x + 2, y++, row, 'muted');
+      row = label;
+    } else row = next;
+  }
+  if (row) page.write(x + 2, y++, row, 'muted');
+  return y + 1;
 }
 
 function overviewPage(data, state, width, palette, color) {
