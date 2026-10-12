@@ -8,6 +8,14 @@ npx gh-profile torvalds
 npx gh-profile
 ```
 
+locally
+```sh
+git clone https://github.com/Kyaee/gh-profile.git
+cd gh-profile
+npm run install:local
+./.local/node_modules/.bin/gh-profile
+```
+
 With no username, the command asks for one.
 
 ### Install from a local checkout
